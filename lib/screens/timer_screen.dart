@@ -1,0 +1,347 @@
+import 'package:flutter/material.dart';
+import '../services/timer_service.dart';
+import '../services/notification_service.dart';
+import 'dart:ui';
+
+class TimerScreen extends StatefulWidget {
+  const TimerScreen({super.key});
+
+  @override
+  State<TimerScreen> createState() => _TimerScreenState();
+}
+
+class _TimerScreenState extends State<TimerScreen> {
+  final TimerService _timerService = TimerService();
+
+  final List<int> _presetSeconds = [
+    60, 120, 180, 240, 300, 600, 900, 1200, 1800, 2700, 3600, 5400, 7200,
+  ];
+
+  final List<String> _presetLabels = [
+    '1分钟', '2分钟', '3分钟', '4分钟', '5分钟', '10分钟', '15分钟',
+    '20分钟', '30分钟', '45分钟', '1小时', '1.5小时', '2小时',
+  ];
+
+  int _selectedIndex = 5; // 默认10分钟
+
+  @override
+  void initState() {
+    super.initState();
+    _timerService.addListener(_onTimerUpdate);
+  }
+
+  @override
+  void dispose() {
+    _timerService.removeListener(_onTimerUpdate);
+    _timerService.dispose();
+    super.dispose();
+  }
+
+  void _onTimerUpdate() {
+    if (mounted) {
+      setState(() {});
+
+      if (_timerService.isRunning) {
+        NotificationService.showTimerNotification(
+          timeRemaining: _timerService.formattedTime,
+        );
+      } else if (_timerService.remainingSeconds == 0) {
+        NotificationService.showTimerCompleteNotification();
+        NotificationService.cancelTimerNotification();
+      }
+    }
+  }
+
+  void _startTimer() {
+    final seconds = _presetSeconds[_selectedIndex];
+    _timerService.startTimer(seconds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = _timerService.isRunning || _timerService.remainingSeconds > 0;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 40),
+            if (isActive) _buildActiveTimerHeader() else _buildSetupHeader(),
+            const Spacer(),
+            _buildCapsuleBar(),
+            const Spacer(),
+            _buildActionButton(),
+            const SizedBox(height: 60),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSetupHeader() {
+    return Column(
+      children: [
+        const Text(
+          '设置计时器:',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 4),
+        GestureDetector(
+          onTap: _showTimePicker,
+          child: Text(
+            _presetLabels[_selectedIndex],
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 40,
+              fontWeight: FontWeight.w300,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveTimerHeader() {
+    return Column(
+      children: [
+        Text(
+          _presetLabels[_selectedIndex],
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _timerService.formattedTime,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 40,
+            fontWeight: FontWeight.w200,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCapsuleBar() {
+    final isActive = _timerService.isRunning || _timerService.remainingSeconds > 0;
+
+    double progress = 0.5;
+    if (isActive) {
+      final initialTime = _timerService.initialSeconds > 0
+          ? _timerService.initialSeconds
+          : _presetSeconds[_selectedIndex];
+      progress = _timerService.remainingSeconds / initialTime;
+    }
+
+    return Container(
+      width: 140,
+      height: 380,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(70),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(70),
+        child: Column(
+          children: [
+            // 上半部分 - 深色/已用时间
+            Expanded(
+              flex: ((1 - progress) * 100).toInt(),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.black.withValues(alpha: 0.6),
+                    ],
+                  ),
+                ),
+                child: _buildSegmentLines(((1 - progress) * 10).toInt()),
+              ),
+            ),
+            // 下半部分 - 浅色/剩余时间
+            Expanded(
+              flex: (progress * 100).toInt(),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.9),
+                      Colors.white.withValues(alpha: 0.7),
+                    ],
+                  ),
+                ),
+                child: _buildSegmentLines((progress * 10).toInt()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSegmentLines(int count) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: List.generate(
+        count > 0 ? count : 1,
+        (index) => Container(
+          height: 1,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          color: Colors.white24,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton() {
+    final isActive = _timerService.isRunning || _timerService.remainingSeconds > 0;
+
+    if (isActive) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildCircleButton(
+            label: '取消',
+            color: Colors.grey,
+            onTap: () {
+              _timerService.stopTimer();
+              NotificationService.cancelTimerNotification();
+            },
+          ),
+          _buildCircleButton(
+            label: _timerService.isRunning ? '暂停' : '继续',
+            color: Colors.orange,
+            onTap: () {
+              if (_timerService.isRunning) {
+                _timerService.pauseTimer();
+                NotificationService.cancelTimerNotification();
+              } else {
+                _timerService.resumeTimer();
+              }
+            },
+          ),
+        ],
+      );
+    }
+
+    return _buildCircleButton(
+      label: '启动',
+      color: const Color(0xFF34C759),
+      onTap: _startTimer,
+    );
+  }
+
+  Widget _buildCircleButton({
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 110,
+        height: 110,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 15,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTimePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      builder: (context) => Container(
+        height: 300,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('取消', style: TextStyle(color: Colors.orange)),
+                  ),
+                  const Text(
+                    '选择时间',
+                    style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('完成', style: TextStyle(color: Colors.orange)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListWheelScrollView.useDelegate(
+                controller: FixedExtentScrollController(initialItem: _selectedIndex),
+                itemExtent: 44,
+                perspective: 0.005,
+                diameterRatio: 1.2,
+                physics: const FixedExtentScrollPhysics(),
+                onSelectedItemChanged: (index) {
+                  setState(() => _selectedIndex = index);
+                },
+                childDelegate: ListWheelChildBuilderDelegate(
+                  childCount: _presetLabels.length,
+                  builder: (context, index) {
+                    return Center(
+                      child: Text(
+                        _presetLabels[index],
+                        style: TextStyle(
+                          fontSize: 22,
+                          color: index == _selectedIndex
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.4),
+                          fontWeight: index == _selectedIndex ? FontWeight.w500 : FontWeight.w400,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
