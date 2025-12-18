@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../services/timer_service.dart';
 import '../services/notification_service.dart';
+import '../services/battery_service.dart';
 import '../widgets/completion_overlay.dart';
+import '../utils/permission_helper.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({super.key});
@@ -30,6 +32,14 @@ class _TimerScreenState extends State<TimerScreen> {
   void initState() {
     super.initState();
     _timerService.addListener(_onTimerUpdate);
+
+    // Show permission dialog and request battery optimization on first launch
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      PermissionHelper.checkAndRequestPermissions(context);
+
+      // Request battery optimization exemption for OPPO/ColorOS devices
+      await BatteryService.requestBatteryOptimization();
+    });
   }
 
   @override
@@ -66,26 +76,26 @@ class _TimerScreenState extends State<TimerScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 背景渐变
+          // 白色背景
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF1a1a2e),
-                  Color(0xFF16213e),
-                  Color(0xFF0f3460),
-                  Color(0xFF533483),
+                  Color(0xFFf5f5f7),
+                  Color(0xFFffffff),
+                  Color(0xFFf0f0f2),
+                  Color(0xFFe8e8ea),
                 ],
               ),
             ),
           ),
           // 磨砂玻璃效果
           BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+            filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
             child: Container(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
           // 主内容

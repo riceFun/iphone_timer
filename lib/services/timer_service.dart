@@ -4,6 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class TimerService extends ChangeNotifier {
+  static const MethodChannel _foregroundChannel =
+      MethodChannel('com.example.iphone_timer/foreground_service');
+  static const MethodChannel _alarmChannel =
+      MethodChannel('com.example.iphone_timer/alarm');
+
   Timer? _timer;
   Timer? _vibrationTimer;
   int _remainingSeconds = 0;
@@ -11,6 +16,20 @@ class TimerService extends ChangeNotifier {
   bool _isRunning = false;
   bool _isCompleted = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  static bool _initialized = false;
+
+  TimerService() {
+    if (!_initialized) {
+      _initialized = true;
+      // 监听来自MainActivity的完成回调
+      _alarmChannel.setMethodCallHandler((call) async {
+        if (call.method == 'onTimerComplete') {
+          debugPrint('Received timer complete callback from MainActivity');
+          onTimerCompleted();
+        }
+      });
+    }
+  }
 
   int get remainingSeconds => _remainingSeconds;
   int get initialSeconds => _initialSeconds;
@@ -29,14 +48,23 @@ class TimerService extends ChangeNotifier {
     }
   }
 
-  void startTimer(int seconds) {
-    _stopVibration(); // Cancel any ongoing vibration from previous timer completion
+  void startTimer(int seconds) async {
+    _stopVibration();
     _isCompleted = false;
     _initialSeconds = seconds;
     _remainingSeconds = seconds;
     _isRunning = true;
     notifyListeners();
 
+    // 启动前台服务中的倒计时 - 这样即使应用被杀死,倒计时也会继续
+    try {
+      await _foregroundChannel.invokeMethod('startTimerInService', {'seconds': seconds});
+      debugPrint('Timer started in foreground service: $seconds seconds');
+    } catch (e) {
+      debugPrint('Failed to start timer in service: $e');
+    }
+
+    // 同时在Flutter中运行Timer用于UI更新(如果应用在前台)
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
@@ -49,13 +77,13 @@ class TimerService extends ChangeNotifier {
     });
   }
 
-  void pauseTimer() {
+  void pauseTimer() async {
     _timer?.cancel();
     _isRunning = false;
     notifyListeners();
   }
 
-  void resumeTimer() {
+  void resumeTimer() async {
     if (_remainingSeconds > 0) {
       _isRunning = true;
       notifyListeners();
@@ -72,21 +100,47 @@ class TimerService extends ChangeNotifier {
     }
   }
 
-  void stopTimer() {
+  void stopTimer() async {
     _timer?.cancel();
-    _stopVibration(); // Cancel vibration when user manually stops timer
+    _stopVibration();
     _isRunning = false;
     _isCompleted = false;
     _remainingSeconds = 0;
     _initialSeconds = 0;
+
+    // 停止前台服务
+    try {
+      await _foregroundChannel.invokeMethod('stopForegroundService');
+      debugPrint('Foreground service stopped');
+    } catch (e) {
+      debugPrint('Failed to stop foreground service: $e');
+    }
+
     notifyListeners();
   }
 
-  void dismissCompletion() {
+  void dismissCompletion() async {
     _stopVibration();
     _audioPlayer.stop();
     _isCompleted = false;
+
+    // 停止前台服务
+    try {
+      await _foregroundChannel.invokeMethod('stopForegroundService');
+    } catch (e) {
+      debugPrint('Failed to stop foreground service: $e');
+    }
+
     notifyListeners();
+  }
+
+  /// Called when timer completes (from service or alarm)
+  void onTimerCompleted() {
+    _timer?.cancel();
+    _timer = null;
+    _isRunning = false;
+    _remainingSeconds = 0;
+    _onTimerComplete();
   }
 
   void _onTimerComplete() async {
@@ -95,11 +149,8 @@ class TimerService extends ChangeNotifier {
 
     // Play sound and start continuous vibration
     try {
-      // Set audio player mode to release mode for better compatibility
       await _audioPlayer.setReleaseMode(ReleaseMode.stop);
-      await _audioPlayer.setVolume(1.0);
-
-      // Play the completion sound
+      await _audioPlayer.setVolume(0.1);
       await _audioPlayer.play(AssetSource('sounds/timer_complete.mp3'));
       debugPrint('Audio playing...');
 
@@ -107,7 +158,7 @@ class TimerService extends ChangeNotifier {
       _startContinuousVibration();
 
       // Listen for audio completion
-      _audioPlayer.onPlayerComplete.listen((event) {
+      _audioPlayer.onPlayerComplete.listen((event) async {
         debugPrint('Audio completed');
         _stopVibration();
         _isCompleted = false;
