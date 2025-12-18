@@ -164,37 +164,83 @@ class _TimerScreenState extends State<TimerScreen> {
   Widget _buildCapsuleBar() {
     final isActive = _timerService.isRunning || _timerService.remainingSeconds > 0;
 
-    double progress;
     if (isActive) {
-      final initialTime = _timerService.initialSeconds > 0
-          ? _timerService.initialSeconds
-          : _presetSeconds[_selectedIndex];
-      progress = _timerService.remainingSeconds / initialTime;
+      return _buildActiveCapsuleBar();
     } else {
-      // 设置模式: 根据选中的索引显示进度
-      // 索引0(1分钟)在底部, 索引12(2小时)在顶部
-      progress = (_selectedIndex + 1) / _presetSeconds.length;
+      return _buildSetupCapsuleBar();
     }
+  }
 
-    // 计算颜色: progress高(刚开始)=绿色, progress低(快结束)=红色
-    Color progressColor;
-    if (isActive) {
-      // 倒计时中: 从绿色渐变到红色
-      progressColor = Color.lerp(
-        Color(0xFFFF3B30), // 红色(剩余0%)
-        Color(0xFF34C759), // 绿色(剩余100%)
-        progress,
-      )!;
-    } else {
-      // 设置模式: 白色
-      progressColor = Colors.white;
-    }
+  // 倒计时中的胶囊条
+  Widget _buildActiveCapsuleBar() {
+    final initialTime = _timerService.initialSeconds > 0
+        ? _timerService.initialSeconds
+        : _presetSeconds[_selectedIndex];
+    final progress = _timerService.remainingSeconds / initialTime;
 
+    // 倒计时中: 从绿色渐变到红色
+    final progressColor = Color.lerp(
+      const Color(0xFFFF3B30), // 红色(剩余0%)
+      const Color(0xFF34C759), // 绿色(剩余100%)
+      progress,
+    )!;
+
+    return Container(
+      width: 140,
+      height: 380,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          children: [
+            // 上半部分 - 深色/已用时间
+            Expanded(
+              flex: ((1 - progress) * 100).toInt(),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.black.withValues(alpha: 0.6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 下半部分 - 剩余时间(颜色渐变)
+            Expanded(
+              flex: (progress * 100).toInt(),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      progressColor.withValues(alpha: 0.9),
+                      progressColor.withValues(alpha: 0.7),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 设置模式的胶囊条
+  Widget _buildSetupCapsuleBar() {
     return GestureDetector(
-      onVerticalDragUpdate: isActive ? null : (details) {
+      onVerticalDragUpdate: (details) {
         _handleDrag(details.localPosition.dy);
       },
-      onTapDown: isActive ? null : (details) {
+      onTapDown: (details) {
         _handleTap(details.localPosition.dy);
       },
       child: Container(
@@ -207,42 +253,28 @@ class _TimerScreenState extends State<TimerScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: Column(
-            children: [
-              // 上半部分 - 深色/已用时间
-              Expanded(
-                flex: ((1 - progress) * 100).toInt(),
+            children: List.generate(_presetSeconds.length, (index) {
+              // 反转索引: 顶部是索引12(2小时), 底部是索引0(1分钟)
+              final reversedIndex = _presetSeconds.length - 1 - index;
+              final isSelected = reversedIndex <= _selectedIndex;
+              return Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.8),
-                        Colors.black.withValues(alpha: 0.6),
-                      ],
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.9)
+                        : Colors.black.withValues(alpha: 0.7),
+                    border: Border(
+                      bottom: index < _presetSeconds.length - 1
+                          ? BorderSide(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1,
+                            )
+                          : BorderSide.none,
                     ),
                   ),
-                  child: isActive ? null : _buildSegmentLines(((1 - progress) * 10).toInt()),
                 ),
-              ),
-              // 下半部分 - 剩余时间(颜色渐变)
-              Expanded(
-                flex: (progress * 100).toInt(),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        progressColor.withValues(alpha: 0.9),
-                        progressColor.withValues(alpha: 0.7),
-                      ],
-                    ),
-                  ),
-                  child: isActive ? null : _buildSegmentLines((progress * 10).toInt()),
-                ),
-              ),
-            ],
+              );
+            }),
           ),
         ),
       ),
@@ -265,20 +297,6 @@ class _TimerScreenState extends State<TimerScreen> {
 
   void _handleTap(double localY) {
     _handleDrag(localY);
-  }
-
-  Widget _buildSegmentLines(int count) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(
-        count > 0 ? count : 1,
-        (index) => Container(
-          height: 1,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          color: Colors.white24,
-        ),
-      ),
-    );
   }
 
   Widget _buildActionButton() {
