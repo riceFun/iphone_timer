@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 
     <application
-        android:label="小闹钟"
+        android:label="计时器"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

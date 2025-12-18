@@ -150,7 +150,7 @@ class TimerService extends ChangeNotifier {
     // Play sound and start continuous vibration
     try {
       await _audioPlayer.setReleaseMode(ReleaseMode.stop);
-      await _audioPlayer.setVolume(0.1);
+      await _audioPlayer.setVolume(1);
       await _audioPlayer.play(AssetSource('sounds/timer_complete.mp3'));
       debugPrint('Audio playing...');
 

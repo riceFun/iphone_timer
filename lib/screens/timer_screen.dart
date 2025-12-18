@@ -18,15 +18,17 @@ class _TimerScreenState extends State<TimerScreen> {
   final TimerService _timerService = TimerService();
 
   final List<int> _presetSeconds = [
-   5, 20,60, 120, 180, 240, 300, 600, 900, 1200, 1800, 2700, 3600, 5400, 7200,
+   // 5, 20,
+    60, 120, 180, 240, 300, 600, 900, 1200, 1800, 2700, 3600, 5400, 7200,
   ];
 
   final List<String> _presetLabels = [
-   '5秒', '20秒','1分钟', '2分钟', '3分钟', '4分钟', '5分钟', '10分钟', '15分钟',
+   // '5秒', '20秒',
+    '1分钟', '2分钟', '3分钟', '4分钟', '5分钟', '10分钟', '15分钟',
     '20分钟', '30分钟', '45分钟', '1小时', '1.5小时', '2小时',
   ];
 
-  int _selectedIndex = 5; // 默认10分钟
+  int _selectedIndex = 0; // 默认10分钟
 
   @override
   void initState() {
