@@ -111,6 +111,8 @@ class TimerService extends ChangeNotifier {
     // 停止前台服务
     try {
       await _foregroundChannel.invokeMethod('stopForegroundService');
+      // 通知MainActivity倒计时已停止
+      await _foregroundChannel.invokeMethod('stopTimer');
       debugPrint('Foreground service stopped');
     } catch (e) {
       debugPrint('Failed to stop foreground service: $e');
@@ -127,6 +129,8 @@ class TimerService extends ChangeNotifier {
     // 停止前台服务
     try {
       await _foregroundChannel.invokeMethod('stopForegroundService');
+      // 通知MainActivity倒计时已停止
+      await _foregroundChannel.invokeMethod('stopTimer');
     } catch (e) {
       debugPrint('Failed to stop foreground service: $e');
     }

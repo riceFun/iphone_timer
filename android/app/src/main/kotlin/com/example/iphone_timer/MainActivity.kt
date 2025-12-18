@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
@@ -20,6 +22,7 @@ class MainActivity : FlutterActivity() {
     private val ALARM_CHANNEL = "com.example.iphone_timer/alarm"
     private val TAG = "MainActivity"
     private var methodChannel: MethodChannel? = null
+    private var isTimerRunning = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -45,7 +48,12 @@ class MainActivity : FlutterActivity() {
                 }
                 "startTimerInService" -> {
                     val seconds = call.argument<Int>("seconds") ?: 0
+                    isTimerRunning = true
                     startTimerInService(seconds)
+                    result.success(null)
+                }
+                "stopTimer" -> {
+                    isTimerRunning = false
                     result.success(null)
                 }
                 else -> {
@@ -255,5 +263,24 @@ class MainActivity : FlutterActivity() {
         } else {
             startService(intent)
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "onPause - isTimerRunning: $isTimerRunning")
+        if (!isTimerRunning) {
+            Log.d(TAG, "No timer running, killing app immediately")
+            finishAndRemoveTask()
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }
