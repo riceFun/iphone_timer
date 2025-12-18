@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../services/timer_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/completion_overlay.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({super.key});
@@ -15,11 +16,11 @@ class _TimerScreenState extends State<TimerScreen> {
   final TimerService _timerService = TimerService();
 
   final List<int> _presetSeconds = [
-    60, 120, 180, 240, 300, 600, 900, 1200, 1800, 2700, 3600, 5400, 7200,
+   5, 60, 120, 180, 240, 300, 600, 900, 1200, 1800, 2700, 3600, 5400, 7200,
   ];
 
   final List<String> _presetLabels = [
-    '1分钟', '2分钟', '3分钟', '4分钟', '5分钟', '10分钟', '15分钟',
+   '5秒', '1分钟', '2分钟', '3分钟', '4分钟', '5分钟', '10分钟', '15分钟',
     '20分钟', '30分钟', '45分钟', '1小时', '1.5小时', '2小时',
   ];
 
@@ -104,6 +105,13 @@ class _TimerScreenState extends State<TimerScreen> {
               ),
             ),
           ),
+          // 完成覆盖页面
+          if (_timerService.isCompleted)
+            CompletionOverlay(
+              onDismiss: () {
+                _timerService.dismissCompletion();
+              },
+            ),
         ],
       ),
     );
