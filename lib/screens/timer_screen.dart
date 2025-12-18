@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/timer_service.dart';
 import '../services/notification_service.dart';
-import 'dart:ui';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({super.key});
@@ -64,17 +64,19 @@ class _TimerScreenState extends State<TimerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 40),
-            if (isActive) _buildActiveTimerHeader() else _buildSetupHeader(),
-            const Spacer(),
-            _buildCapsuleBar(),
-            const Spacer(),
-            _buildActionButton(),
-            const SizedBox(height: 60),
-          ],
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            children: [
+              const SizedBox(height: 40),
+              if (isActive) _buildActiveTimerHeader() else _buildSetupHeader(),
+              const Spacer(),
+              _buildCapsuleBar(),
+              const Spacer(),
+              _buildActionButton(),
+              const SizedBox(height: 60),
+            ],
+          ),
         ),
       ),
     );
@@ -135,63 +137,93 @@ class _TimerScreenState extends State<TimerScreen> {
   Widget _buildCapsuleBar() {
     final isActive = _timerService.isRunning || _timerService.remainingSeconds > 0;
 
-    double progress = 0.5;
+    double progress;
     if (isActive) {
       final initialTime = _timerService.initialSeconds > 0
           ? _timerService.initialSeconds
           : _presetSeconds[_selectedIndex];
       progress = _timerService.remainingSeconds / initialTime;
+    } else {
+      // 设置模式: 根据选中的索引显示进度
+      // 索引0(1分钟)在底部, 索引12(2小时)在顶部
+      progress = (_selectedIndex + 1) / _presetSeconds.length;
     }
 
-    return Container(
-      width: 140,
-      height: 380,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(70),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(70),
-        child: Column(
-          children: [
-            // 上半部分 - 深色/已用时间
-            Expanded(
-              flex: ((1 - progress) * 100).toInt(),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.8),
-                      Colors.black.withValues(alpha: 0.6),
-                    ],
+    return GestureDetector(
+      onVerticalDragUpdate: isActive ? null : (details) {
+        _handleDrag(details.localPosition.dy);
+      },
+      onTapDown: isActive ? null : (details) {
+        _handleTap(details.localPosition.dy);
+      },
+      child: Container(
+        width: 140,
+        height: 380,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Column(
+            children: [
+              // 上半部分 - 深色/已用时间
+              Expanded(
+                flex: ((1 - progress) * 100).toInt(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.8),
+                        Colors.black.withValues(alpha: 0.6),
+                      ],
+                    ),
                   ),
+                  child: _buildSegmentLines(((1 - progress) * 10).toInt()),
                 ),
-                child: _buildSegmentLines(((1 - progress) * 10).toInt()),
               ),
-            ),
-            // 下半部分 - 浅色/剩余时间
-            Expanded(
-              flex: (progress * 100).toInt(),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.9),
-                      Colors.white.withValues(alpha: 0.7),
-                    ],
+              // 下半部分 - 浅色/剩余时间
+              Expanded(
+                flex: (progress * 100).toInt(),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.9),
+                        Colors.white.withValues(alpha: 0.7),
+                      ],
+                    ),
                   ),
+                  child: _buildSegmentLines((progress * 10).toInt()),
                 ),
-                child: _buildSegmentLines((progress * 10).toInt()),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  void _handleDrag(double localY) {
+    // 计算点击/拖动位置对应的时间索引
+    // 从底部到顶部: 1分钟 -> 2小时
+    final ratio = 1 - (localY / 380); // 反转,底部为0,顶部为1
+    final index = (_presetSeconds.length * ratio).floor().clamp(0, _presetSeconds.length - 1);
+
+    if (index != _selectedIndex) {
+      HapticFeedback.lightImpact(); // 轻微振动
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
+  void _handleTap(double localY) {
+    _handleDrag(localY);
   }
 
   Widget _buildSegmentLines(int count) {
