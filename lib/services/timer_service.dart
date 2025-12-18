@@ -79,14 +79,22 @@ class TimerService extends ChangeNotifier {
     // Play sound and vibrate
     try {
       await _audioPlayer.play(AssetSource('sounds/timer_complete.mp3'));
-      await HapticFeedback.vibrate();
 
-      // Vibrate pattern for iOS-like effect
+      // 强烈振动提醒倒计时结束
+      HapticFeedback.heavyImpact();
+
+      // 连续振动模式 - iOS风格
+      Future.delayed(const Duration(milliseconds: 100), () {
+        HapticFeedback.heavyImpact();
+      });
       Future.delayed(const Duration(milliseconds: 200), () {
-        HapticFeedback.vibrate();
+        HapticFeedback.heavyImpact();
+      });
+      Future.delayed(const Duration(milliseconds: 300), () {
+        HapticFeedback.mediumImpact();
       });
       Future.delayed(const Duration(milliseconds: 400), () {
-        HapticFeedback.vibrate();
+        HapticFeedback.mediumImpact();
       });
     } catch (e) {
       debugPrint('Error playing sound or vibrating: $e');

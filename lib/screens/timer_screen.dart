@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';
 import '../services/timer_service.dart';
 import '../services/notification_service.dart';
 
@@ -62,22 +63,48 @@ class _TimerScreenState extends State<TimerScreen> {
     final isActive = _timerService.isRunning || _timerService.remainingSeconds > 0;
 
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: SizedBox(
-          width: double.infinity,
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
-              if (isActive) _buildActiveTimerHeader() else _buildSetupHeader(),
-              const Spacer(),
-              _buildCapsuleBar(),
-              const Spacer(),
-              _buildActionButton(),
-              const SizedBox(height: 60),
-            ],
+      body: Stack(
+        children: [
+          // 背景渐变
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1a1a2e),
+                  Color(0xFF16213e),
+                  Color(0xFF0f3460),
+                  Color(0xFF533483),
+                ],
+              ),
+            ),
           ),
-        ),
+          // 磨砂玻璃效果
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.3),
+            ),
+          ),
+          // 主内容
+          SafeArea(
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
+                  if (isActive) _buildActiveTimerHeader() else _buildSetupHeader(),
+                  const Spacer(),
+                  _buildCapsuleBar(),
+                  const Spacer(),
+                  _buildActionButton(),
+                  const SizedBox(height: 60),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -149,6 +176,20 @@ class _TimerScreenState extends State<TimerScreen> {
       progress = (_selectedIndex + 1) / _presetSeconds.length;
     }
 
+    // 计算颜色: progress高(刚开始)=绿色, progress低(快结束)=红色
+    Color progressColor;
+    if (isActive) {
+      // 倒计时中: 从绿色渐变到红色
+      progressColor = Color.lerp(
+        Color(0xFFFF3B30), // 红色(剩余0%)
+        Color(0xFF34C759), // 绿色(剩余100%)
+        progress,
+      )!;
+    } else {
+      // 设置模式: 白色
+      progressColor = Colors.white;
+    }
+
     return GestureDetector(
       onVerticalDragUpdate: isActive ? null : (details) {
         _handleDrag(details.localPosition.dy);
@@ -181,10 +222,10 @@ class _TimerScreenState extends State<TimerScreen> {
                       ],
                     ),
                   ),
-                  child: _buildSegmentLines(((1 - progress) * 10).toInt()),
+                  child: isActive ? null : _buildSegmentLines(((1 - progress) * 10).toInt()),
                 ),
               ),
-              // 下半部分 - 浅色/剩余时间
+              // 下半部分 - 剩余时间(颜色渐变)
               Expanded(
                 flex: (progress * 100).toInt(),
                 child: Container(
@@ -193,12 +234,12 @@ class _TimerScreenState extends State<TimerScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: 0.9),
-                        Colors.white.withValues(alpha: 0.7),
+                        progressColor.withValues(alpha: 0.9),
+                        progressColor.withValues(alpha: 0.7),
                       ],
                     ),
                   ),
-                  child: _buildSegmentLines((progress * 10).toInt()),
+                  child: isActive ? null : _buildSegmentLines((progress * 10).toInt()),
                 ),
               ),
             ],
