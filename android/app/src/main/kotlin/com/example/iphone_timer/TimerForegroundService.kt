@@ -132,14 +132,34 @@ class TimerForegroundService : Service() {
         Log.d(TAG, "========================================")
 
         stopTimer()
+
+        // 获取FULL_WAKE_LOCK唤醒屏幕
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val fullWakeLock = powerManager.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK or
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or
+            PowerManager.ON_AFTER_RELEASE,
+            "TimerApp::AlarmWakeLock"
+        )
+        fullWakeLock.acquire(60000) // 持续1分钟
+
         releaseWakeLock()
 
-        // 启动MainActivity并传递完成标志
+        // 启动MainActivity并传递完成标志,解锁屏幕
         val mainIntent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or
+                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                     Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra("timer_completed", true)
         }
         startActivity(mainIntent)
+
+        // 延迟释放WakeLock
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (fullWakeLock.isHeld) {
+                fullWakeLock.release()
+            }
+        }, 60000)
 
         // 停止前台服务
         stopForeground(STOP_FOREGROUND_REMOVE)
